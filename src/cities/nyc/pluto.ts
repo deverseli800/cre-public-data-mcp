@@ -5,6 +5,13 @@ function log(message: string, data?: unknown) {
   console.error(`[PLUTO] ${message}`, data !== undefined ? JSON.stringify(data, null, 2) : '');
 }
 
+export interface RentInfo {
+  likely_stabilized: boolean;
+  stabilization_reasons: string[];
+  confidence: "high" | "medium" | "low";
+  notes: string[];
+}
+
 export interface NYCProperty {
   bbl: string;
   borough: string;
@@ -26,7 +33,126 @@ export interface NYCProperty {
   assessed_total: number;
   exempt_total: number;
   zola_url: string;
+  // Rent regulation info
+  rent_info: RentInfo;
   city: "nyc";
+}
+
+/**
+ * Calculate rent stabilization likelihood based on property characteristics.
+ * 
+ * NYC Rent Stabilization applies to:
+ * 1. Buildings with 6+ units built before January 1, 1974
+ * 2. Buildings built before February 1, 1947 (with 6+ units) - tenants who moved in after June 30, 1971
+ * 3. Buildings receiving 421a or J-51 tax benefits (regardless of age/size)
+ * 
+ * Note: This is an ESTIMATE. Units can be deregulated through:
+ * - High-rent vacancy decontrol (pre-2019 for rents over $2,774)
+ * - Owner occupancy
+ * - Substantial rehabilitation
+ * - Condo/co-op conversion
+ */
+function calculateRentInfo(params: {
+  year_built: number | null;
+  units: number;
+  building_class: string;
+  owner: string;
+  has_421a?: boolean;
+  has_j51?: boolean;
+}): RentInfo {
+  const { year_built, units, building_class, owner, has_421a, has_j51 } = params;
+  
+  const reasons: string[] = [];
+  const notes: string[] = [];
+  let likely_stabilized = false;
+  let confidence: "high" | "medium" | "low" = "low";
+  
+  // Check for NYCHA (public housing - not rent stabilized, has its own rules)
+  const isNYCHA = owner.toUpperCase().includes('NYCHA') || 
+                  owner.toUpperCase().includes('NEW YORK CITY HOUSING AUTHORITY') ||
+                  owner.toUpperCase().includes('NYC HOUSING AUTHORITY');
+  
+  if (isNYCHA) {
+    return {
+      likely_stabilized: false,
+      stabilization_reasons: [],
+      confidence: "high",
+      notes: ["NYCHA public housing - subject to federal regulations, not rent stabilization"],
+    };
+  }
+  
+  // Check for condo/co-op (building class starts with R)
+  const isCondoCoop = building_class.toUpperCase().startsWith('R');
+  if (isCondoCoop) {
+    notes.push("Condo/co-op building - individual units typically not rent stabilized unless sponsor-owned rentals");
+  }
+  
+  // Rule 1: Pre-1974 buildings with 6+ units
+  if (year_built && year_built < 1974 && units >= 6 && !isCondoCoop) {
+    likely_stabilized = true;
+    reasons.push(`Pre-1974 building (${year_built}) with ${units} units`);
+    confidence = "medium";
+    
+    // Pre-1947 buildings have additional protections
+    if (year_built < 1947) {
+      notes.push("Pre-1947 building may have some rent-controlled units (tenants since before July 1971)");
+    }
+  }
+  
+  // Rule 2: Tax benefit recipients (421a, J-51)
+  if (has_421a) {
+    likely_stabilized = true;
+    reasons.push("Receives 421a tax exemption - units must be rent stabilized during benefit period");
+    confidence = "high";
+    notes.push("421a stabilization expires when tax benefit ends - check benefit end date");
+  }
+  
+  if (has_j51) {
+    likely_stabilized = true;
+    reasons.push("Receives J-51 tax abatement - units must be rent stabilized during benefit period");
+    confidence = "high";
+    notes.push("J-51 stabilization may extend beyond benefit period under certain conditions");
+  }
+  
+  // Add general notes
+  if (likely_stabilized) {
+    notes.push("Individual units may be deregulated through high-rent vacancy, owner occupancy, or substantial rehab");
+    notes.push("Verify with DHCR or NYC tax bills for definitive unit counts");
+  } else if (units >= 6 && year_built && year_built >= 1974) {
+    notes.push(`Built ${year_built} - after 1974 cutoff. May be stabilized if receiving tax benefits (421a/J-51)`);
+  } else if (units > 0 && units < 6) {
+    notes.push(`Only ${units} units - below 6-unit threshold for mandatory stabilization. May be stabilized if receiving tax benefits`);
+  }
+  
+  // Adjust confidence if we couldn't determine key factors
+  if (!year_built && units < 6) {
+    confidence = "low";
+    notes.push("Unable to determine year built - stabilization status uncertain");
+  }
+  
+  return {
+    likely_stabilized,
+    stabilization_reasons: reasons,
+    confidence,
+    notes,
+  };
+}
+
+/**
+ * Enhanced rent info calculation that includes tax benefit data
+ */
+export function calculateRentInfoWithTaxBenefits(
+  property: NYCProperty,
+  taxBenefits: { has_421a: boolean; has_j51: boolean }
+): RentInfo {
+  return calculateRentInfo({
+    year_built: property.year_built,
+    units: property.units_total || property.units,
+    building_class: property.building_class,
+    owner: property.owner,
+    has_421a: taxBenefits.has_421a,
+    has_j51: taxBenefits.has_j51,
+  });
 }
 
 export async function queryPluto(where: string, limit = 10): Promise<NYCProperty[]> {
@@ -64,6 +190,20 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
       ? `https://zola.planninglabs.nyc/l/lot/${borocode}/${block}/${lot}`
       : "";
     
+    const units = parseInt(String(row.unitsres || "0")) || 0;
+    const units_total = parseInt(String(row.unitstotal || "0")) || 0;
+    const year_built = row.yearbuilt ? parseInt(String(row.yearbuilt)) : null;
+    const building_class = String(row.bldgclass || "");
+    const owner = String(row.ownername || "");
+    
+    // Calculate rent stabilization info
+    const rent_info = calculateRentInfo({
+      year_built,
+      units: units_total || units,
+      building_class,
+      owner,
+    });
+    
     return {
       bbl: String(row.bbl || "").split(".")[0],
       borough: String(row.borough || ""),
@@ -72,11 +212,11 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
       address: String(row.address || ""),
       latitude: row.latitude ? parseFloat(String(row.latitude)) : null,
       longitude: row.longitude ? parseFloat(String(row.longitude)) : null,
-      units: parseInt(String(row.unitsres || "0")) || 0,
-      units_total: parseInt(String(row.unitstotal || "0")) || 0,
-      year_built: row.yearbuilt ? parseInt(String(row.yearbuilt)) : null,
-      building_class: String(row.bldgclass || ""),
-      owner: String(row.ownername || ""),
+      units,
+      units_total,
+      year_built,
+      building_class,
+      owner,
       zoning: String(row.zonedist1 || ""),
       lot_area: parseInt(String(row.lotarea || "0")) || 0,
       building_area: parseInt(String(row.bldgarea || "0")) || 0,
@@ -85,6 +225,7 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
       assessed_total: parseFloat(String(row.assesstot || "0")) || 0,
       exempt_total: parseFloat(String(row.exempttot || "0")) || 0,
       zola_url,
+      rent_info,
       city: "nyc" as const,
     };
   });
