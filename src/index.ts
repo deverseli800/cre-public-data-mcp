@@ -12,6 +12,7 @@ import { getProperty } from "./tools/get-property.js";
 import { getSaleHistory } from "./tools/get-sale-history.js";
 import { searchProperties } from "./tools/search-properties.js";
 import { getTaxBenefits } from "./tools/get-tax-benefits.js";
+import { searchComps } from "./tools/search-comps.js";
 
 const server = new Server(
   { name: "property-mcp", version: "1.0.0" },
@@ -153,6 +154,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         required: ["city"]
       }
+    },
+    {
+      name: "search_comps",
+      description: "Find comparable sales for a subject property. Searches for similar properties (same building type) in the same or adjacent neighborhoods. Returns ranked comps with price_per_unit and price_per_sqft, plus implied values for the subject.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          city: { 
+            type: "string", 
+            enum: ["nyc", "philadelphia"],
+            description: "City (required)"
+          },
+          address: { type: "string", description: "Subject property street address" },
+          borough: { 
+            type: "string", 
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
+            description: "NYC only: borough of subject property (required)" 
+          },
+          limit: { type: "number", description: "Number of comps to return (default: 10, max: 50)" },
+          building_class: { type: "string", description: "Override building class filter (e.g., 'C' for walk-ups, 'D' for elevators)" },
+          include_adjacent_neighborhoods: { type: "boolean", description: "Include adjacent neighborhoods (default: true)" }
+        },
+        required: ["city", "address", "borough"]
+      }
     }
   ]
 }));
@@ -178,6 +203,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "get_tax_benefits":
         result = await getTaxBenefits(args as unknown as Parameters<typeof getTaxBenefits>[0]);
+        break;
+      case "search_comps":
+        result = await searchComps(args as unknown as Parameters<typeof searchComps>[0]);
         break;
       default:
         throw new Error(`Unknown tool: ${name}`);
