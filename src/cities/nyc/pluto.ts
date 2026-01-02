@@ -82,7 +82,7 @@ export async function getPropertyByBBL(
   log(`Normalized BBL:`, { borough, block: b, lot: l });
   
   const results = await queryPluto(
-    `borough='${borough}' AND block='${b}' AND lot='${l}'`, 
+    `borocode='${borough}' AND block='${b}' AND lot='${l}'`, 
     1
   );
   return results[0] || null;
@@ -93,14 +93,17 @@ export async function getPropertyByBBL(
  * PLUTO uses: "522 EAST 5 STREET" (no ordinal suffixes like "5th")
  */
 function normalizeAddress(address: string): string {
-  let normalized = address.toUpperCase();
-  
-  log(`Normalizing address - input:`, normalized);
+  let normalized = address.toUpperCase().trim();
   
   // Remove ordinal suffixes: 1st, 2nd, 3rd, 4th, 5th, etc.
   // "5TH" -> "5", "1ST" -> "1", "2ND" -> "2", "3RD" -> "3"
   normalized = normalized.replace(/(\d+)(ST|ND|RD|TH)\b/g, '$1');
-  log(`After removing ordinals:`, normalized);
+  
+  // Expand "E" and "W" directionals (PLUTO uses EAST/WEST)
+  normalized = normalized.replace(/\bE\b\.?\s+/g, 'EAST ');
+  normalized = normalized.replace(/\bW\b\.?\s+/g, 'WEST ');
+  normalized = normalized.replace(/\bN\b\.?\s+/g, 'NORTH ');
+  normalized = normalized.replace(/\bS\b\.?\s+/g, 'SOUTH ');
   
   // Normalize street type abbreviations to full words (PLUTO uses full words)
   normalized = normalized.replace(/\bST\b\.?$/g, 'STREET');
@@ -111,17 +114,15 @@ function normalizeAddress(address: string): string {
   normalized = normalized.replace(/\bLN\b\.?$/g, 'LANE');
   normalized = normalized.replace(/\bCT\b\.?$/g, 'COURT');
   normalized = normalized.replace(/\bRD\b\.?$/g, 'ROAD');
-  log(`After expanding abbreviations:`, normalized);
   
   // Escape single quotes for SQL
   normalized = normalized.replace(/'/g, "''");
   
-  log(`Final normalized address:`, normalized);
   return normalized;
 }
 
 /**
- * Extract just the street number from an address for more flexible matching
+ * Extract street number from address
  */
 function extractStreetNumber(address: string): string | null {
   const match = address.match(/^(\d+)/);
@@ -129,10 +130,9 @@ function extractStreetNumber(address: string): string | null {
 }
 
 /**
- * Extract street name components for matching
+ * Extract street name (everything after the number)
  */
 function extractStreetName(address: string): string | null {
-  // Remove street number and normalize
   const normalized = normalizeAddress(address);
   const match = normalized.match(/^\d+\s+(.+)$/);
   return match ? match[1] : null;
@@ -145,45 +145,52 @@ export async function getPropertyByAddress(
   log(`getPropertyByAddress called:`, { address, boroughCode });
   
   const normalized = normalizeAddress(address);
+  const streetNumber = extractStreetNumber(address);
+  const streetName = extractStreetName(address);
   
-  // First try exact match with normalized address
-  let where = `upper(address) LIKE '%${normalized}%'`;
+  log(`Parsed address:`, { normalized, streetNumber, streetName, boroughCode });
+  
+  // Build WHERE clause - match from START of address (no leading %)
+  // This prevents "522" from matching "1522"
+  let where = `upper(address) LIKE '${normalized}%'`;
   if (boroughCode) {
     where += ` AND borocode='${boroughCode}'`;
   }
   
-  log(`First query WHERE clause:`, where);
+  log(`Query 1 - exact match WHERE:`, where);
   let results = await queryPluto(where, 5);
   
-  // If no results, try a more flexible search using street number and partial street name
-  if (results.length === 0) {
-    log(`No results from first query, trying flexible search...`);
+  // If no results with exact match, try with street number and partial name
+  if (results.length === 0 && streetNumber && streetName) {
+    // Get first two words of street name (e.g., "EAST 5" from "EAST 5 STREET")
+    const streetNameParts = streetName.split(/\s+/).slice(0, 2).join(' ');
     
-    const streetNumber = extractStreetNumber(address);
-    const streetName = extractStreetName(address);
+    where = `upper(address) LIKE '${streetNumber} ${streetNameParts}%'`;
+    if (boroughCode) {
+      where += ` AND borocode='${boroughCode}'`;
+    }
     
-    log(`Extracted components:`, { streetNumber, streetName });
+    log(`Query 2 - partial match WHERE:`, where);
+    results = await queryPluto(where, 5);
+  }
+  
+  // If still no results and we have a borough filter, try without it
+  // (in case the user specified wrong borough)
+  if (results.length === 0 && boroughCode) {
+    where = `upper(address) LIKE '${normalized}%'`;
+    log(`Query 3 - without borough filter WHERE:`, where);
+    results = await queryPluto(where, 5);
     
-    if (streetNumber && streetName) {
-      // Extract key parts of street name (e.g., "EAST 5" from "EAST 5 STREET")
-      const streetNameParts = streetName.split(/\s+/).slice(0, 2).join(' ');
-      log(`Street name parts:`, streetNameParts);
-      
-      where = `upper(address) LIKE '${streetNumber} ${streetNameParts}%'`;
-      if (boroughCode) {
-        where += ` AND borocode='${boroughCode}'`;
-      }
-      
-      log(`Second query WHERE clause:`, where);
-      results = await queryPluto(where, 5);
+    if (results.length > 0) {
+      log(`Found ${results.length} results without borough filter. Boroughs found:`, 
+        results.map(r => r.borough));
     }
   }
   
-  log(`Final results count:`, results.length);
+  log(`Final results count: ${results.length}`);
   if (results.length > 0) {
-    log(`Returning first result:`, results[0]);
+    log(`Returning:`, results[0]);
   }
   
-  // Return best match (first result)
   return results[0] || null;
 }
