@@ -1,0 +1,34 @@
+{
+  "name": "@probdb/property-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for querying NYC and Philadelphia property data",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "property-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "mcp",
+    "nyc",
+    "philadelphia",
+    "property",
+    "real-estate",
+    "claude"
+  ],
+  "license": "MIT"
+}
