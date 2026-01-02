@@ -11,9 +11,13 @@ export interface NYCSale {
   building_class: string;
   neighborhood: string;
   units: number;
+  units_total?: number;
   sqft: number;
   year_built: number | null;
   zola_url: string;
+  // Calculated fields
+  price_per_unit?: number | null;
+  price_per_sqft?: number | null;
   // Enriched from PLUTO
   latitude?: number | null;
   longitude?: number | null;

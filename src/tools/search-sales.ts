@@ -57,13 +57,30 @@ async function searchNYCSales(input: SearchSalesInput, limit: number) {
   const where = conditions.join(" AND ");
   const sales = await nycSales.querySales(where, limit);
   
-  // Enrich with PLUTO data
+  // Enrich with PLUTO data and calculate metrics
   const enriched = await Promise.all(
     sales.map(async (sale) => {
       try {
         const pluto = await nycPluto.getPropertyByBBL(sale.borough, sale.block, sale.lot);
+        
+        // Use PLUTO's units_total if available, fallback to sales data units
+        const units_total = pluto?.units_total || sale.units || 0;
+        
+        // Calculate price per unit (if units > 0)
+        const price_per_unit = units_total > 0 && sale.sale_price > 0
+          ? Math.round(sale.sale_price / units_total)
+          : null;
+        
+        // Calculate price per sqft (if sqft > 0)
+        const price_per_sqft = sale.sqft > 0 && sale.sale_price > 0
+          ? Math.round(sale.sale_price / sale.sqft)
+          : null;
+        
         return {
           ...sale,
+          units_total,
+          price_per_unit,
+          price_per_sqft,
           latitude: pluto?.latitude,
           longitude: pluto?.longitude,
           owner: pluto?.owner,
@@ -75,13 +92,13 @@ async function searchNYCSales(input: SearchSalesInput, limit: number) {
     })
   );
   
-  // Filter by units if specified (PLUTO has better unit data)
+  // Filter by units if specified (use units_total from PLUTO)
   let filtered = enriched;
   if (input.min_units) {
-    filtered = filtered.filter(s => (s.units || 0) >= input.min_units!);
+    filtered = filtered.filter(s => (s.units_total || s.units || 0) >= input.min_units!);
   }
   if (input.max_units) {
-    filtered = filtered.filter(s => (s.units || 0) <= input.max_units!);
+    filtered = filtered.filter(s => (s.units_total || s.units || 0) <= input.max_units!);
   }
   
   return { city: "nyc", count: filtered.length, sales: filtered };

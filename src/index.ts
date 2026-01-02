@@ -11,6 +11,7 @@ import { searchSales } from "./tools/search-sales.js";
 import { getProperty } from "./tools/get-property.js";
 import { getSaleHistory } from "./tools/get-sale-history.js";
 import { searchProperties } from "./tools/search-properties.js";
+import { getTaxBenefits } from "./tools/get-tax-benefits.js";
 
 const server = new Server(
   { name: "property-mcp", version: "1.0.0" },
@@ -22,7 +23,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "search_sales",
-      description: "Search for recent property sales in NYC or Philadelphia. Filter by neighborhood, price range, building type, and more. Returns sales enriched with property details.",
+      description: "Search for recent property sales in NYC or Philadelphia. Filter by neighborhood, price range, building type, and more. Returns sales enriched with property details including price_per_unit and price_per_sqft calculations.",
       inputSchema: {
         type: "object" as const,
         properties: {
@@ -128,6 +129,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         },
         required: ["city"]
       }
+    },
+    {
+      name: "get_tax_benefits",
+      description: "Get tax exemptions and abatements for a NYC property. Returns 421a, J-51, ICAP, STAR and other tax benefits that impact property value. Critical for CRE appraisals.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          city: { 
+            type: "string", 
+            enum: ["nyc", "philadelphia"],
+            description: "City (required)"
+          },
+          address: { type: "string", description: "Street address to search" },
+          borough: { 
+            type: "string", 
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
+            description: "NYC only: borough" 
+          },
+          borough_code: { type: "string", description: "Borough code (1-5) if known" },
+          block: { type: "string", description: "Block number if known" },
+          lot: { type: "string", description: "Lot number if known" }
+        },
+        required: ["city"]
+      }
     }
   ]
 }));
@@ -150,6 +175,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "search_properties":
         result = await searchProperties(args as unknown as Parameters<typeof searchProperties>[0]);
+        break;
+      case "get_tax_benefits":
+        result = await getTaxBenefits(args as unknown as Parameters<typeof getTaxBenefits>[0]);
         break;
       default:
         throw new Error(`Unknown tool: ${name}`);

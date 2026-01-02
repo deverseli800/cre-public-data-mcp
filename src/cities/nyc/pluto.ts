@@ -14,6 +14,7 @@ export interface NYCProperty {
   latitude: number | null;
   longitude: number | null;
   units: number;
+  units_total: number;
   year_built: number | null;
   building_class: string;
   owner: string;
@@ -72,6 +73,7 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
       latitude: row.latitude ? parseFloat(String(row.latitude)) : null,
       longitude: row.longitude ? parseFloat(String(row.longitude)) : null,
       units: parseInt(String(row.unitsres || "0")) || 0,
+      units_total: parseInt(String(row.unitstotal || "0")) || 0,
       year_built: row.yearbuilt ? parseInt(String(row.yearbuilt)) : null,
       building_class: String(row.bldgclass || ""),
       owner: String(row.ownername || ""),
