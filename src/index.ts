@@ -61,7 +61,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "get_property",
-      description: "Get detailed property information from NYC PLUTO or Philadelphia OPA database. Includes owner, units, year built, zoning, and coordinates.",
+      description: "Get detailed property information from NYC PLUTO or Philadelphia OPA database. Includes owner, units, year built, zoning, coordinates, and tax assessment values (assessed_land, assessed_total, exempt_total).",
       inputSchema: {
         type: "object" as const,
         properties: {

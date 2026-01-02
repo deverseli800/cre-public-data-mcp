@@ -20,6 +20,10 @@ export interface NYCProperty {
   zoning: string;
   lot_area: number;
   building_area: number;
+  // Assessment data
+  assessed_land: number;
+  assessed_total: number;
+  exempt_total: number;
   zola_url: string;
   city: "nyc";
 }
@@ -74,6 +78,10 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
       zoning: String(row.zonedist1 || ""),
       lot_area: parseInt(String(row.lotarea || "0")) || 0,
       building_area: parseInt(String(row.bldgarea || "0")) || 0,
+      // Assessment data from NYC Finance
+      assessed_land: parseFloat(String(row.assessland || "0")) || 0,
+      assessed_total: parseFloat(String(row.assesstot || "0")) || 0,
+      exempt_total: parseFloat(String(row.exempttot || "0")) || 0,
       zola_url,
       city: "nyc" as const,
     };
