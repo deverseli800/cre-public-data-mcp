@@ -13,6 +13,7 @@ export interface NYCSale {
   units: number;
   sqft: number;
   year_built: number | null;
+  zola_url: string;
   // Enriched from PLUTO
   latitude?: number | null;
   longitude?: number | null;
@@ -35,21 +36,34 @@ export async function querySales(
   if (!response.ok) throw new Error(`Rolling Sales API error: ${response.status}`);
   
   const data = await response.json() as Record<string, unknown>[];
-  return data.map((row) => ({
-    borough: String(row.borough || ""),
-    block: String(row.block || ""),
-    lot: String(row.lot || ""),
-    address: String(row.address || ""),
-    apartment_number: String(row.apartment_number || ""),
-    sale_price: parseFloat(String(row.sale_price || "0")) || 0,
-    sale_date: String(row.sale_date || "").split("T")[0],
-    building_class: String(row.building_class_at_time_of_sale || row.building_class_at_present || ""),
-    neighborhood: String(row.neighborhood || ""),
-    units: parseInt(String(row.residential_units || "0")) || 0,
-    sqft: parseInt(String(row.gross_square_feet || "0")) || 0,
-    year_built: row.year_built ? parseInt(String(row.year_built)) : null,
-    city: "nyc" as const,
-  }));
+  return data.map((row) => {
+    const borough = String(row.borough || "");
+    const block = String(row.block || "");
+    const lot = String(row.lot || "");
+    
+    // Generate ZOLA URL: https://zola.planninglabs.nyc/l/lot/{borocode}/{block}/{lot}
+    // Sales data uses numeric borough codes (1-5)
+    const zola_url = borough && block && lot 
+      ? `https://zola.planninglabs.nyc/l/lot/${borough}/${block}/${lot}`
+      : "";
+    
+    return {
+      borough,
+      block,
+      lot,
+      address: String(row.address || ""),
+      apartment_number: String(row.apartment_number || ""),
+      sale_price: parseFloat(String(row.sale_price || "0")) || 0,
+      sale_date: String(row.sale_date || "").split("T")[0],
+      building_class: String(row.building_class_at_time_of_sale || row.building_class_at_present || ""),
+      neighborhood: String(row.neighborhood || ""),
+      units: parseInt(String(row.residential_units || "0")) || 0,
+      sqft: parseInt(String(row.gross_square_feet || "0")) || 0,
+      year_built: row.year_built ? parseInt(String(row.year_built)) : null,
+      zola_url,
+      city: "nyc" as const,
+    };
+  });
 }
 
 export async function getSalesByBBL(

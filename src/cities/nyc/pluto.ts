@@ -20,6 +20,7 @@ export interface NYCProperty {
   zoning: string;
   lot_area: number;
   building_area: number;
+  zola_url: string;
   city: "nyc";
 }
 
@@ -48,23 +49,35 @@ export async function queryPluto(where: string, limit = 10): Promise<NYCProperty
     log(`First result raw:`, data[0]);
   }
   
-  const mapped = data.map((row) => ({
-    bbl: String(row.bbl || "").split(".")[0],
-    borough: String(row.borough || ""),
-    block: String(row.block || ""),
-    lot: String(row.lot || ""),
-    address: String(row.address || ""),
-    latitude: row.latitude ? parseFloat(String(row.latitude)) : null,
-    longitude: row.longitude ? parseFloat(String(row.longitude)) : null,
-    units: parseInt(String(row.unitsres || "0")) || 0,
-    year_built: row.yearbuilt ? parseInt(String(row.yearbuilt)) : null,
-    building_class: String(row.bldgclass || ""),
-    owner: String(row.ownername || ""),
-    zoning: String(row.zonedist1 || ""),
-    lot_area: parseInt(String(row.lotarea || "0")) || 0,
-    building_area: parseInt(String(row.bldgarea || "0")) || 0,
-    city: "nyc" as const,
-  }));
+  const mapped = data.map((row) => {
+    const borocode = String(row.borocode || "");
+    const block = String(row.block || "");
+    const lot = String(row.lot || "");
+    
+    // Generate ZOLA URL: https://zola.planninglabs.nyc/l/lot/{borocode}/{block}/{lot}
+    const zola_url = borocode && block && lot 
+      ? `https://zola.planninglabs.nyc/l/lot/${borocode}/${block}/${lot}`
+      : "";
+    
+    return {
+      bbl: String(row.bbl || "").split(".")[0],
+      borough: String(row.borough || ""),
+      block,
+      lot,
+      address: String(row.address || ""),
+      latitude: row.latitude ? parseFloat(String(row.latitude)) : null,
+      longitude: row.longitude ? parseFloat(String(row.longitude)) : null,
+      units: parseInt(String(row.unitsres || "0")) || 0,
+      year_built: row.yearbuilt ? parseInt(String(row.yearbuilt)) : null,
+      building_class: String(row.bldgclass || ""),
+      owner: String(row.ownername || ""),
+      zoning: String(row.zonedist1 || ""),
+      lot_area: parseInt(String(row.lotarea || "0")) || 0,
+      building_area: parseInt(String(row.bldgarea || "0")) || 0,
+      zola_url,
+      city: "nyc" as const,
+    };
+  });
   
   return mapped;
 }

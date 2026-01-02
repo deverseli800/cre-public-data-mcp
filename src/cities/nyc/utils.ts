@@ -12,6 +12,7 @@ export const BOROUGH_CODES: Record<string, string> = {
   "brooklyn": "3",
   "queens": "4",
   "staten island": "5",
+  "staten_island": "5",
   // PLUTO abbreviations
   "mn": "1",
   "bx": "2",

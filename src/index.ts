@@ -37,7 +37,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           borough: { 
             type: "string", 
-            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten island"],
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
             description: "NYC only: borough to search"
           },
           min_price: { type: "number", description: "Minimum sale price" },
@@ -71,7 +71,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description: "City (required)"
           },
           address: { type: "string", description: "Street address to search" },
-          borough: { type: "string", description: "NYC only: borough name" }
+          borough: { 
+            type: "string", 
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
+            description: "NYC only: borough (required for NYC searches)" 
+          }
         },
         required: ["city", "address"]
       }
@@ -88,7 +92,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             description: "City (required)"
           },
           address: { type: "string", description: "Street address" },
-          borough: { type: "string", description: "NYC only: borough name" }
+          borough: { 
+            type: "string", 
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
+            description: "NYC only: borough (required for NYC searches)" 
+          }
         },
         required: ["city", "address"]
       }
@@ -104,8 +112,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             enum: ["nyc", "philadelphia"],
             description: "City (required)"
           },
-          neighborhood: { type: "string" },
-          borough: { type: "string", description: "NYC only" },
+          neighborhood: { type: "string", description: "Neighborhood name" },
+          borough: { 
+            type: "string", 
+            enum: ["manhattan", "bronx", "brooklyn", "queens", "staten_island"],
+            description: "NYC only: borough" 
+          },
           min_units: { type: "number" },
           max_units: { type: "number" },
           building_class: { type: "string" },
