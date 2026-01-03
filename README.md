@@ -127,7 +127,7 @@ tail -f ~/Library/Logs/Claude/mcp-server-property.log
 Get detailed property information by address.
 
 **Parameters:**
-- `city` (required): `"nyc"` or `"philadelphia"`
+- `city` (required): `"nyc"`
 - `address` (required): Street address
 - `borough`: NYC borough (`manhattan`, `bronx`, `brooklyn`, `queens`, `staten_island`)
 
@@ -152,7 +152,7 @@ Get detailed property information by address.
 Search for recent property sales with filters.
 
 **Parameters:**
-- `city` (required): `"nyc"` or `"philadelphia"`
+- `city` (required): `"nyc"`
 - `borough`: NYC borough
 - `neighborhood`: e.g., `"EAST VILLAGE"`, `"HARLEM"`
 - `min_price` / `max_price`: Price range
@@ -206,7 +206,7 @@ Find comparable sales for valuation analysis.
 Get all recorded sales for a specific property.
 
 **Parameters:**
-- `city` (required): `"nyc"` or `"philadelphia"`
+- `city` (required): `"nyc"`
 - `address` (required): Street address
 - `borough`: NYC borough
 
@@ -222,7 +222,7 @@ Get all recorded sales for a specific property.
 Search for properties (not sales) matching criteria.
 
 **Parameters:**
-- `city` (required): `"nyc"` or `"philadelphia"`
+- `city` (required): `"nyc"`
 - `borough`: NYC borough
 - `min_units` / `max_units`: Unit count range
 - `building_class`: Building type
@@ -322,7 +322,6 @@ Every property lookup includes a `rent_info` object with stabilization analysis:
 - **NYC Rolling Sales** only contains the last 12 months of sales
 - **Rent stabilization** analysis is an estimate - verify with DHCR for official status
 - **Tax benefits** data may lag behind current status
-- **Philadelphia support** is planned but not yet implemented
 
 ## Troubleshooting
 
