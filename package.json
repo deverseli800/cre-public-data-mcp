@@ -1,5 +1,5 @@
 {
-  "name": "@probdb/property-mcp",
+  "name": "cre-property-mcp",
   "version": "1.0.0",
   "description": "MCP server for querying NYC and Philadelphia property data",
   "type": "module",

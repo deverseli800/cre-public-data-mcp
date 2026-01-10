@@ -31,14 +31,14 @@ A Model Context Protocol (MCP) server that provides Claude with access to NYC pu
 ### Install from npm
 
 ```bash
-npm install -g @anthropic/property-mcp
+npm install -g cre-property-mcp
 ```
 
 ### Or clone and build locally
 
 ```bash
-git clone https://github.com/anthropic/property-mcp.git
-cd property-mcp
+git clone https://github.com/deverseli800/cre-public-data-mcp.git
+cd cre-public-data-mcp
 npm install
 npm run build
 ```
@@ -85,7 +85,7 @@ Edit the Claude Desktop configuration file:
   "mcpServers": {
     "property": {
       "command": "npx",
-      "args": ["-y", "@anthropic/property-mcp"]
+      "args": ["-y", "cre-property-mcp"]
     }
   }
 }
